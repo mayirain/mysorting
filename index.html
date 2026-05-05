@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Quick Sort Learning Lab</title>
+    <style>
+        :root {
+            --primary: #9b59b6; /* Ungu untuk membedakan dengan Bubble Sort */
+            --secondary: #3498db;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --pivot: #f1c40f;
+            --bg: #f8f9fa;
+            --text: #2c3e50;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 650px;
+            text-align: center;
+        }
+
+        h1 { margin-bottom: 0.5rem; color: var(--primary); }
+        p { color: #7f8c8d; margin-bottom: 1.5rem; }
+
+        .visualizer {
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            height: 200px;
+            gap: 8px;
+            margin: 20px 0;
+            padding: 10px;
+            background: #fdfdfd;
+            border-bottom: 3px solid #eee;
+        }
+
+        .bar {
+            flex: 1;
+            background-color: var(--secondary);
+            border-radius: 4px 4px 0 0;
+            transition: 0.2s ease;
+            position: relative;
+            min-width: 30px;
+        }
+
+        .bar span {
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        /* State Styles */
+        .active { background-color: var(--danger) !important; transform: scaleY(1.05); }
+        .pivot { background-color: var(--pivot) !important; border: 2px solid #000; }
+        .sorted { background-color: var(--success) !important; }
+
+        .info-box {
+            background: #eef2f7;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            min-height: 45px;
+            border-left: 5px solid var(--primary);
+            text-align: left;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+            background: var(--primary);
+            color: white;
+        }
+
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button:disabled { background: #bdc3c7; cursor: not-allowed; }
+        
+        #speed { cursor: pointer; }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 0.8rem;
+        }
+        .dot { width: 10px; height: 10px; display: inline-block; border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h1>Lab Quick Sort</h1>
+        <p>Strategi <i>Divide & Conquer</i>: Pilih Pivot dan bagi data!</p>
+
+        <div class="visualizer" id="container"></div>
+
+        <div class="legend">
+            <span><span class="dot" style="background: var(--pivot)"></span> Pivot</span>
+            <span><span class="dot" style="background: var(--danger)"></span> Membandingkan</span>
+            <span><span class="dot" style="background: var(--success)"></span> Posisi Tetap</span>
+        </div>
+
+        <div class="info-box" id="step-info">
+            Siap untuk melihat kecepatan Quick Sort?
+        </div>
+
+        <div class="controls">
+            <button id="startBtn" onclick="startSort()">Mulai Pengurutan</button>
+            <button id="resetBtn" onclick="resetData()">Acak Data Baru</button>
+            <div style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
+                <small>Lambat</small>
+                <input type="range" id="speed" min="100" max="1000" value="700" dir="rtl">
+                <small>Cepat</small>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let data = [35, 12, 50, 8, 22, 45, 17, 30];
+        let sortedIndices = new Set();
+        const container = document.getElementById('container');
+        const info = document.getElementById('step-info');
+        const speedInput = document.getElementById('speed');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        function render(activeIndices = [], pivotIndex = -1) {
+            container.innerHTML = '';
+            data.forEach((val, i) => {
+                const bar = document.createElement('div');
+                bar.className = 'bar';
+                bar.style.height = `${val * 2.5}px`;
+                
+                if (i === pivotIndex) bar.classList.add('pivot');
+                else if (activeIndices.includes(i)) bar.classList.add('active');
+                else if (sortedIndices.has(i)) bar.classList.add('sorted');
+                
+                bar.innerHTML = `<span>${val}</span>`;
+                container.appendChild(bar);
+            });
+        }
+
+        const sleep = () => new Promise(r => setTimeout(r, 1100 - speedInput.value));
+
+        function resetData() {
+            data = Array.from({length: 10}, () => Math.floor(Math.random() * 60) + 5);
+            sortedIndices = new Set();
+            info.innerText = "Data baru disiapkan. Quick Sort membagi data berdasarkan Pivot.";
+            startBtn.disabled = false;
+            render();
+        }
+
+        async function partition(low, high) {
+            let pivot = data[high];
+            let i = low - 1;
+            
+            info.innerHTML = `🎯 <b>Pivot dipilih: ${pivot}</b> (elemen terakhir)`;
+            render([], high);
+            await sleep();
+
+            for (let j = low; j < high; j++) {
+                info.innerHTML = `🔎 Memeriksa <b>${data[j]}</b>. Apakah < ${pivot}?`;
+                render([j], high);
+                await sleep();
+
+                if (data[j] < pivot) {
+                    i++;
+                    info.innerHTML = `🔄 <b>${data[j]} < ${pivot}</b>, geser ke kiri (tukar dengan ${data[i]})`;
+                    [data[i], data[j]] = [data[j], data[i]];
+                    render([i, j], high);
+                    await sleep();
+                }
+            }
+
+            info.innerHTML = `📍 Letakkan Pivot <b>${pivot}</b> ke posisi tengah yang benar.`;
+            [data[i + 1], data[high]] = [data[high], data[i + 1]];
+            let pivotPos = i + 1;
+            sortedIndices.add(pivotPos);
+            render([], pivotPos);
+            await sleep();
+            
+            return pivotPos;
+        }
+
+        async function quickSort(low, high) {
+            if (low <= high) {
+                let pi = await partition(low, high);
+                
+                info.innerHTML = `↔️ Membagi bagian Kiri dan Kanan dari pivot ${data[pi]}`;
+                await quickSort(low, pi - 1);
+                await quickSort(pi + 1, high);
+            }
+            // Mark all as sorted when done
+            if (low === 0 && high === data.length -1) {
+                for(let k=0; k<data.length; k++) sortedIndices.add(k);
+                render();
+            }
+        }
+
+        async function startSort() {
+            startBtn.disabled = true;
+            resetBtn.disabled = true;
+            await quickSort(0, data.length - 1);
+            info.innerHTML = "✨ <b>Selesai!</b> Quick Sort berhasil mengurutkan data dengan efisien.";
+            resetBtn.disabled = false;
+        }
+
+        render();
+    </script>
+</body>
+</html>
