@@ -2,14 +2,13 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Quick Sort Learning Lab</title>
+    <title>Lab Selection Sort</title>
     <style>
         :root {
-            --primary: #9b59b6; /* Ungu untuk membedakan dengan Bubble Sort */
-            --secondary: #3498db;
-            --success: #2ecc71;
-            --danger: #e74c3c;
-            --pivot: #f1c40f;
+            --primary: #4a90e2;   /* Biru: Standar */
+            --secondary: #f1c40f; /* Kuning: Nilai Terkecil Sementara */
+            --success: #2ecc71;   /* Hijau: Sudah Urut */
+            --danger: #e74c3c;    /* Merah: Sedang Membandingkan */
             --bg: #f8f9fa;
             --text: #2c3e50;
         }
@@ -51,9 +50,9 @@
 
         .bar {
             flex: 1;
-            background-color: var(--secondary);
+            background-color: var(--primary);
             border-radius: 4px 4px 0 0;
-            transition: 0.2s ease;
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             min-width: 30px;
         }
@@ -67,9 +66,8 @@
             font-weight: bold;
         }
 
-        /* State Styles */
-        .active { background-color: var(--danger) !important; transform: scaleY(1.05); }
-        .pivot { background-color: var(--pivot) !important; border: 2px solid #000; }
+        .compare { background-color: var(--danger) !important; transform: scaleY(1.05); }
+        .is-min { background-color: var(--secondary) !important; box-shadow: 0 0 10px var(--secondary); }
         .sorted { background-color: var(--success) !important; }
 
         .info-box {
@@ -81,7 +79,6 @@
             font-size: 14px;
             min-height: 45px;
             border-left: 5px solid var(--primary);
-            text-align: left;
         }
 
         .controls {
@@ -106,134 +103,99 @@
         button:disabled { background: #bdc3c7; cursor: not-allowed; }
         
         #speed { cursor: pointer; }
-
-        .legend {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-top: 10px;
-            font-size: 0.8rem;
-        }
-        .dot { width: 10px; height: 10px; display: inline-block; border-radius: 50%; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h1>Lab Quick Sort</h1>
-        <p>Strategi <i>Divide & Conquer</i>: Pilih Pivot dan bagi data!</p>
+        <h1>Lab Selection Sort</h1>
+        <p>Cari nilai terkecil, lalu pindahkan ke posisi terdepan!</p>
 
         <div class="visualizer" id="container"></div>
 
-        <div class="legend">
-            <span><span class="dot" style="background: var(--pivot)"></span> Pivot</span>
-            <span><span class="dot" style="background: var(--danger)"></span> Membandingkan</span>
-            <span><span class="dot" style="background: var(--success)"></span> Posisi Tetap</span>
-        </div>
-
         <div class="info-box" id="step-info">
-            Siap untuk melihat kecepatan Quick Sort?
+            Siap belajar? Klik tombol di bawah untuk mencari nilai terkecil.
         </div>
 
         <div class="controls">
-            <button id="startBtn" onclick="startSort()">Mulai Pengurutan</button>
-            <button id="resetBtn" onclick="resetData()">Acak Data Baru</button>
+            <button id="startBtn" onclick="selectionSort()">Mulai Pengurutan</button>
+            <button onclick="resetData()">Acak Data Baru</button>
             <div style="display: flex; align-items: center; gap: 5px; margin-left: 10px;">
                 <small>Lambat</small>
-                <input type="range" id="speed" min="100" max="1000" value="700" dir="rtl">
+                <input type="range" id="speed" min="100" max="1000" value="500" dir="rtl">
                 <small>Cepat</small>
             </div>
         </div>
     </div>
 
     <script>
-        let data = [35, 12, 50, 8, 22, 45, 17, 30];
-        let sortedIndices = new Set();
+        let data = [30, 50, 10, 40, 5, 20];
         const container = document.getElementById('container');
         const info = document.getElementById('step-info');
         const speedInput = document.getElementById('speed');
         const startBtn = document.getElementById('startBtn');
-        const resetBtn = document.getElementById('resetBtn');
 
-        function render(activeIndices = [], pivotIndex = -1) {
+        function render(compareIdx = -1, minIdx = -1, sortedCount = 0) {
             container.innerHTML = '';
             data.forEach((val, i) => {
                 const bar = document.createElement('div');
                 bar.className = 'bar';
                 bar.style.height = `${val * 2.5}px`;
                 
-                if (i === pivotIndex) bar.classList.add('pivot');
-                else if (activeIndices.includes(i)) bar.classList.add('active');
-                else if (sortedIndices.has(i)) bar.classList.add('sorted');
+                if (i < sortedCount) bar.classList.add('sorted');
+                else if (i === minIdx) bar.classList.add('is-min');
+                else if (i === compareIdx) bar.classList.add('compare');
                 
                 bar.innerHTML = `<span>${val}</span>`;
                 container.appendChild(bar);
             });
         }
 
-        const sleep = () => new Promise(r => setTimeout(r, 1100 - speedInput.value));
-
         function resetData() {
-            data = Array.from({length: 10}, () => Math.floor(Math.random() * 60) + 5);
-            sortedIndices = new Set();
-            info.innerText = "Data baru disiapkan. Quick Sort membagi data berdasarkan Pivot.";
+            data = Array.from({length: 8}, () => Math.floor(Math.random() * 60) + 5);
+            info.innerText = "Data baru siap dianalisis!";
             startBtn.disabled = false;
             render();
         }
 
-        async function partition(low, high) {
-            let pivot = data[high];
-            let i = low - 1;
-            
-            info.innerHTML = `🎯 <b>Pivot dipilih: ${pivot}</b> (elemen terakhir)`;
-            render([], high);
-            await sleep();
+        const sleep = () => new Promise(r => setTimeout(r, 1100 - speedInput.value));
 
-            for (let j = low; j < high; j++) {
-                info.innerHTML = `🔎 Memeriksa <b>${data[j]}</b>. Apakah < ${pivot}?`;
-                render([j], high);
+        async function selectionSort() {
+            startBtn.disabled = true;
+            let n = data.length;
+
+            for (let i = 0; i < n; i++) {
+                let minIdx = i;
+                info.innerHTML = `📍 Putaran ${i+1}: Mencari yang terkecil mulai dari indeks ke-${i}.`;
+                render(-1, minIdx, i);
                 await sleep();
 
-                if (data[j] < pivot) {
-                    i++;
-                    info.innerHTML = `🔄 <b>${data[j]} < ${pivot}</b>, geser ke kiri (tukar dengan ${data[i]})`;
-                    [data[i], data[j]] = [data[j], data[i]];
-                    render([i, j], high);
+                for (let j = i + 1; j < n; j++) {
+                    info.innerHTML = `🔎 Memeriksa apakah <b>${data[j]}</b> < <b>${data[minIdx]}</b>?`;
+                    render(j, minIdx, i);
+                    await sleep();
+
+                    if (data[j] < data[minIdx]) {
+                        minIdx = j;
+                        info.innerHTML = `⭐ Ketemu! Nilai terkecil sementara sekarang adalah <b>${data[minIdx]}</b>.`;
+                        render(-1, minIdx, i);
+                        await sleep();
+                    }
+                }
+
+                if (minIdx !== i) {
+                    info.innerHTML = `🔄 Menukar <b>${data[minIdx]}</b> ke posisi depan (indeks ke-${i}).`;
+                    [data[i], data[minIdx]] = [data[minIdx], data[i]];
+                    render(-1, i, i);
+                    await sleep();
+                } else {
+                    info.innerHTML = `✅ <b>${data[i]}</b> sudah di posisi yang benar.`;
                     await sleep();
                 }
-            }
-
-            info.innerHTML = `📍 Letakkan Pivot <b>${pivot}</b> ke posisi tengah yang benar.`;
-            [data[i + 1], data[high]] = [data[high], data[i + 1]];
-            let pivotPos = i + 1;
-            sortedIndices.add(pivotPos);
-            render([], pivotPos);
-            await sleep();
-            
-            return pivotPos;
-        }
-
-        async function quickSort(low, high) {
-            if (low <= high) {
-                let pi = await partition(low, high);
                 
-                info.innerHTML = `↔️ Membagi bagian Kiri dan Kanan dari pivot ${data[pi]}`;
-                await quickSort(low, pi - 1);
-                await quickSort(pi + 1, high);
+                render(-1, -1, i + 1);
             }
-            // Mark all as sorted when done
-            if (low === 0 && high === data.length -1) {
-                for(let k=0; k<data.length; k++) sortedIndices.add(k);
-                render();
-            }
-        }
-
-        async function startSort() {
-            startBtn.disabled = true;
-            resetBtn.disabled = true;
-            await quickSort(0, data.length - 1);
-            info.innerHTML = "✨ <b>Selesai!</b> Quick Sort berhasil mengurutkan data dengan efisien.";
-            resetBtn.disabled = false;
+            info.innerHTML = "✨ <b>Selesai!</b> Semua nilai terkecil sudah dipindahkan ke tempatnya.";
         }
 
         render();
